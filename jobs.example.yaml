@@ -1,0 +1,14 @@
+jobs:
+  - name: hello
+    description: Exemplo sem rede. Status vem do exit code.
+    script: examples/hello_job.py
+
+  - name: market_data
+    description: Baixa dados publicos via yfinance.
+    script: examples/yfinance_download.py
+    python: ${PYTHON_EXE}
+    schedule:
+      days_of_week: [mon, tue, wed, thu, fri]
+      min_interval_hours: 24
+    result:
+      success_marker: "DONE"

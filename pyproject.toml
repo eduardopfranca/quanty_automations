@@ -1,0 +1,20 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "automations"
+version = "0.1.0"
+description = "Orquestrador de jobs configuravel, dirigido por arquivo."
+requires-python = ">=3.10"
+dependencies = [
+    "pydantic>=2",
+    "pydantic-settings>=2",
+    "pyyaml>=6",
+]
+
+[project.scripts]
+automate = "automations.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["automations"]
