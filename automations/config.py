@@ -1,6 +1,6 @@
 """
 config.py
-Carrega e valida a configuracao: segredos/globais do .env, jobs do jobs.yaml.
+Loads and validates configuration: secrets/globals from .env, jobs from jobs.yaml.
 """
 from __future__ import annotations
 
@@ -33,6 +33,7 @@ class Settings(BaseSettings):
 
 DAYS = {"mon", "tue", "wed", "thu", "fri", "sat", "sun"}
 
+
 class ScheduleConfig(BaseModel):
     days_of_week: list[str] | None = None
     day_of_month: int | None = None
@@ -45,21 +46,21 @@ class ScheduleConfig(BaseModel):
             return v
         bad = [d for d in v if d.lower() not in DAYS]
         if bad:
-            raise ValueError(f"dias invalidos: {bad}. Use {sorted(DAYS)}")
+            raise ValueError(f"invalid days: {bad}. Use {sorted(DAYS)}")
         return [d.lower() for d in v]
 
     @field_validator("day_of_month")
     @classmethod
     def _check_dom(cls, v):
         if v is not None and not (1 <= v <= 31):
-            raise ValueError("day_of_month deve estar entre 1 e 31")
+            raise ValueError("day_of_month must be between 1 and 31")
         return v
 
 
 class ResultConfig(BaseModel):
     success_marker: str | None = None
     failure_marker: str | None = None
-    report_file: str | None = None  
+    report_file: str | None = None
 
 
 class JobConfig(BaseModel):
@@ -80,12 +81,13 @@ class Config:
     settings: Settings
     jobs: list[JobConfig]
 
+
 def load_config(jobs_file: str | Path = "jobs.yaml") -> Config:
     settings = Settings()
 
     path = Path(jobs_file)
     if not path.exists():
-        raise FileNotFoundError(f"jobs file nao encontrado: {path}")
+        raise FileNotFoundError(f"jobs file not found: {path}")
 
     raw = os.path.expandvars(path.read_text(encoding="utf-8"))
     data = yaml.safe_load(raw) or {}
@@ -98,6 +100,6 @@ def load_config(jobs_file: str | Path = "jobs.yaml") -> Config:
     names = [j.name for j in jobs]
     dupes = sorted({n for n in names if names.count(n) > 1})
     if dupes:
-        raise ValueError(f"nomes de job duplicados: {dupes}")
+        raise ValueError(f"duplicate job names: {dupes}")
 
     return Config(settings=settings, jobs=jobs)

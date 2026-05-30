@@ -1,12 +1,11 @@
 """
 execution_log.py
-----------------
-Gerencia o arquivo execution_log.json que registra:
-  - ultima execucao bem-sucedida de cada job
-  - ultima tentativa (sucesso ou falha)
-  - historico resumido dos ultimos N resultados
+Manages execution_log.json, which records:
+  - last successful run of each job
+  - last attempt (success or failure)
+  - rolling history of the last N results
 
-Formato do JSON:
+JSON format:
 {
     "factor_db": {
         "last_success": "2025-06-10T09:12:33",
@@ -32,12 +31,12 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-# Maximo de entradas no historico por job (evita crescimento infinito)
+# Maximum history entries per job (prevents unbounded growth)
 MAX_HISTORY_ENTRIES = 30
 
 
 def _load_raw(log_path: Path) -> dict:
-    """Carrega o JSON do disco. Retorna dict vazio se nao existir."""
+    """Loads JSON from disk. Returns empty dict if file does not exist."""
     if not log_path.exists():
         return {}
     try:
@@ -48,7 +47,7 @@ def _load_raw(log_path: Path) -> dict:
 
 
 def _save_raw(data: dict, log_path: Path) -> None:
-    """Salva o dict no disco como JSON identado."""
+    """Saves dict to disk as indented JSON."""
     log_path.parent.mkdir(parents=True, exist_ok=True)
     log_path.write_text(
         json.dumps(data, indent=2, ensure_ascii=False, default=str),
@@ -58,8 +57,8 @@ def _save_raw(data: dict, log_path: Path) -> None:
 
 def get_last_success(log_path: Path, job_name: str) -> datetime | None:
     """
-    Retorna o datetime da ultima execucao bem-sucedida do job,
-    ou None se nunca rodou com sucesso.
+    Returns the datetime of the last successful run for the given job,
+    or None if it has never succeeded.
     """
     data = _load_raw(log_path)
     job_data = data.get(job_name)
@@ -76,14 +75,14 @@ def get_last_success(log_path: Path, job_name: str) -> datetime | None:
 
 def get_last_attempt(log_path: Path, job_name: str) -> dict | None:
     """
-    Retorna um dict com info da ultima tentativa:
+    Returns a dict with info about the last attempt:
     {
         "timestamp": datetime,
         "status": "SUCCESS" | "FAILED" | "SKIPPED",
         "error": str | None,
         "duration_seconds": float
     }
-    Retorna None se nunca tentou.
+    Returns None if no attempt has been recorded.
     """
     data = _load_raw(log_path)
     job_data = data.get(job_name)
@@ -91,20 +90,22 @@ def get_last_attempt(log_path: Path, job_name: str) -> dict | None:
         return None
     return {
         "timestamp": job_data.get("last_attempt"),
-        "status": job_data.get("last_status"),
-        "error": job_data.get("last_error"),
+        "status":    job_data.get("last_status"),
+        "error":     job_data.get("last_error"),
         "duration_seconds": job_data.get("last_duration_seconds"),
     }
 
 
 def get_all_jobs_summary(log_path: Path) -> dict:
     """
-    Retorna um resumo de todos os jobs registrados.
+    Returns a summary of all recorded jobs:
     {
         "job_name": {
             "last_success": "...",
             "last_status": "...",
             "last_attempt": "...",
+            "last_duration_seconds": ...,
+            "last_error": "...",
         },
         ...
     }
@@ -113,11 +114,11 @@ def get_all_jobs_summary(log_path: Path) -> dict:
     summary = {}
     for job_name, job_data in data.items():
         summary[job_name] = {
-            "last_success": job_data.get("last_success"),
-            "last_status": job_data.get("last_status"),
-            "last_attempt": job_data.get("last_attempt"),
+            "last_success":          job_data.get("last_success"),
+            "last_status":           job_data.get("last_status"),
+            "last_attempt":          job_data.get("last_attempt"),
             "last_duration_seconds": job_data.get("last_duration_seconds"),
-            "last_error": job_data.get("last_error"),
+            "last_error":            job_data.get("last_error"),
         }
     return summary
 
@@ -130,14 +131,14 @@ def record_result(
     error: str | None = None,
 ) -> None:
     """
-    Registra o resultado de uma execucao (ou tentativa) de um job.
+    Records the result of a job execution or attempt.
 
-    Parametros:
-        log_path:          caminho do execution_log.json
-        job_name:          nome do job (ex: "factor_db")
-        status:            "SUCCESS", "FAILED", ou "SKIPPED"
-        duration_seconds:  tempo de execucao em segundos
-        error:             mensagem de erro (se houver)
+    Args:
+        log_path:         path to execution_log.json
+        job_name:         job identifier (e.g. "factor_db")
+        status:           "SUCCESS", "FAILED", or "SKIPPED"
+        duration_seconds: execution time in seconds
+        error:            error message if applicable
     """
     data = _load_raw(log_path)
 
@@ -145,36 +146,36 @@ def record_result(
 
     if job_name not in data:
         data[job_name] = {
-            "last_success": None,
-            "last_attempt": None,
-            "last_status": None,
-            "last_error": None,
+            "last_success":          None,
+            "last_attempt":          None,
+            "last_status":           None,
+            "last_error":            None,
             "last_duration_seconds": None,
-            "history": [],
+            "history":               [],
         }
 
     job_data = data[job_name]
 
-    # Atualiza campos de ultima tentativa
-    job_data["last_attempt"] = now_iso
-    job_data["last_status"] = status
-    job_data["last_error"] = error
+    # Update last attempt fields
+    job_data["last_attempt"]          = now_iso
+    job_data["last_status"]           = status
+    job_data["last_error"]            = error
     job_data["last_duration_seconds"] = round(duration_seconds, 2)
 
-    # Se sucesso, atualiza last_success
+    # On success, update last_success
     if status == "SUCCESS":
         job_data["last_success"] = now_iso
 
-    # Adiciona ao historico
+    # Append to history
     entry = {
-        "timestamp": now_iso,
-        "status": status,
+        "timestamp":        now_iso,
+        "status":           status,
         "duration_seconds": round(duration_seconds, 2),
-        "error": error,
+        "error":            error,
     }
     job_data["history"].append(entry)
 
-    # Limita tamanho do historico
+    # Trim history to max size
     if len(job_data["history"]) > MAX_HISTORY_ENTRIES:
         job_data["history"] = job_data["history"][-MAX_HISTORY_ENTRIES:]
 
