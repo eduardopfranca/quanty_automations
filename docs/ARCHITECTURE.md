@@ -70,6 +70,7 @@ automations/          ← Python package
     cli.py
     config.py
     runner.py
+    notifier.py
     execution_log.py
 
 logs/                 ← created automatically on first run (gitignored)
@@ -77,6 +78,10 @@ logs/                 ← created automatically on first run (gitignored)
 
 examples/             ← standalone scripts for testing
     hello_job.py
+
+setup_scheduler.py    ← run once as Admin to configure Windows Task Scheduler
+    reads SCHEDULE_TIMES, TASK_NAME_PREFIX, SCHEDULE_DAILY from .env
+    removes all existing tasks with the prefix before recreating
 ```
 
 ---

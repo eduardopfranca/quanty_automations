@@ -1,3 +1,4 @@
+```markdown
 # quanty_automations
 
 A file-driven job orchestrator. Define jobs in `jobs.yaml`, secrets in `.env`. No boilerplate per job — just config.
@@ -49,11 +50,30 @@ jobs:
 That's it. The orchestrator calls `python path/to/my_script.py` via subprocess.
 Exit code 0 = success. Any other exit code = failure.
 
+## Scheduling (Windows)
+
+To run `automate run` automatically via Windows Task Scheduler, configure your `.env`:
+
+```
+SCHEDULE_TIMES=["09:00","13:00"]
+SCHEDULE_DAILY=true
+TASK_NAME_PREFIX=QuantyAutomations
+```
+
+Then run once as Administrator:
+
+```bash
+python setup_scheduler.py
+```
+
+Re-run whenever you change `SCHEDULE_TIMES` — it removes all existing tasks with your prefix and recreates them cleanly.
+
 ## Project structure
 
 ```
 quanty_automations/
 ├── pyproject.toml
+├── setup_scheduler.py     # configures Windows Task Scheduler (run once as Admin)
 ├── jobs.yaml              # your job definitions (not committed)
 ├── .env                   # your secrets (not committed)
 ├── jobs.example.yaml      # template to copy from
@@ -67,6 +87,7 @@ quanty_automations/
     ├── cli.py             # entry point (automate command)
     ├── config.py          # settings + job model + loader
     ├── runner.py          # eligibility, subprocess, result recording
+    ├── notifier.py        # email summary after each run
     └── execution_log.py   # reads and writes execution_log.json
 ```
 
@@ -80,3 +101,4 @@ It is the single source of truth for scheduling decisions.
 
 - Python 3.10+
 - Dependencies: `pydantic>=2`, `pydantic-settings>=2`, `pyyaml>=6`
+```

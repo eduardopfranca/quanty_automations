@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     smtp_user: str | None = None
     smtp_password: str | None = None
     email_on_success: bool = True
+    task_name_prefix: str = "QuantyAutomations"
+    schedule_times: list[str] = Field(default_factory=lambda: ["09:00", "13:00"])
+    schedule_daily: bool = True
 
 
 DAYS = {"mon", "tue", "wed", "thu", "fri", "sat", "sun"}
