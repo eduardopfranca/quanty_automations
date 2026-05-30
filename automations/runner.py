@@ -1,6 +1,6 @@
 """
 runner.py
-Decide elegibilidade, executa jobs via subprocess, registra resultados.
+Decides eligibility, executes jobs via subprocess, records results.
 """
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ _DAY_MAP = {"mon": 0, "tue": 1, "wed": 2, "thu": 3, "fri": 4, "sat": 5, "sun": 6
 
 def _is_eligible(job: JobConfig, log_path: Path, force: bool = False) -> tuple[bool, str]:
     if force:
-        return True, "forcado"
+        return True, "forced"
 
     sc = job.schedule
 
@@ -28,12 +28,12 @@ def _is_eligible(job: JobConfig, log_path: Path, force: bool = False) -> tuple[b
         today = datetime.now().weekday()
         allowed = {_DAY_MAP[d] for d in sc.days_of_week}
         if today not in allowed:
-            names = ["seg", "ter", "qua", "qui", "sex", "sab", "dom"]
-            return False, f"hoje e {names[today]}, job roda em {sc.days_of_week}"
+            names = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+            return False, f"today is {names[today]}, job runs on {sc.days_of_week}"
 
     if sc.day_of_month is not None:
         if datetime.now().day != sc.day_of_month:
-            return False, f"job roda no dia {sc.day_of_month} do mes"
+            return False, f"job runs on day {sc.day_of_month} of the month"
 
     if sc.min_interval_hours is not None:
         last = elog.get_last_success(log_path, job.name)
@@ -41,11 +41,11 @@ def _is_eligible(job: JobConfig, log_path: Path, force: bool = False) -> tuple[b
             elapsed = (datetime.now() - last).total_seconds() / 3600
             if elapsed < sc.min_interval_hours:
                 return False, (
-                    f"ultima execucao ha {elapsed:.1f}h "
-                    f"(intervalo minimo: {sc.min_interval_hours}h)"
+                    f"last run {elapsed:.1f}h ago "
+                    f"(min interval: {sc.min_interval_hours}h)"
                 )
 
-    return True, "elegivel"
+    return True, "eligible"
 
 
 def _check_success(proc: subprocess.CompletedProcess, job: JobConfig) -> bool:
@@ -76,10 +76,22 @@ def run_job(
     if not eligible:
         if not dry_run:
             elog.record_result(log_path, job.name, "SKIPPED", error=reason)
-        return {"job": job.name, "status": "SKIPPED", "duration_seconds": 0.0, "message": reason}
+        return {
+            "job": job.name,
+            "status": "SKIPPED",
+            "duration_seconds": 0.0,
+            "message": reason,
+            "report_file": None,
+        }
 
     if dry_run:
-        return {"job": job.name, "status": "DRY_RUN", "duration_seconds": 0.0, "message": "elegivel — nao executado"}
+        return {
+            "job": job.name,
+            "status": "DRY_RUN",
+            "duration_seconds": 0.0,
+            "message": "eligible — not executed",
+            "report_file": None,
+        }
 
     cmd = [str(job.python), str(job.script)] + list(job.args)
     cwd = str(job.cwd) if job.cwd else None
@@ -99,22 +111,46 @@ def run_job(
             elog.record_result(log_path, job.name, "SUCCESS", duration)
             stdout_lines = (proc.stdout or "").strip().splitlines()
             message = stdout_lines[-1][:200] if stdout_lines else "ok"
-            return {"job": job.name, "status": "SUCCESS", "duration_seconds": duration, "message": message}
+            return {
+                "job": job.name,
+                "status": "SUCCESS",
+                "duration_seconds": duration,
+                "message": message,
+                "report_file": job.result.report_file,
+            }
         else:
             error = _short_error(proc)
             elog.record_result(log_path, job.name, "FAILED", duration, error=error)
-            return {"job": job.name, "status": "FAILED", "duration_seconds": duration, "message": error}
+            return {
+                "job": job.name,
+                "status": "FAILED",
+                "duration_seconds": duration,
+                "message": error,
+                "report_file": job.result.report_file,
+            }
 
     except subprocess.TimeoutExpired:
         duration = time.monotonic() - start
-        error = f"timeout apos {job.timeout_seconds}s"
+        error = f"timeout after {job.timeout_seconds}s"
         elog.record_result(log_path, job.name, "FAILED", duration, error=error)
-        return {"job": job.name, "status": "FAILED", "duration_seconds": duration, "message": error}
+        return {
+            "job": job.name,
+            "status": "FAILED",
+            "duration_seconds": duration,
+            "message": error,
+            "report_file": None,
+        }
 
     except Exception as e:
         duration = time.monotonic() - start
         elog.record_result(log_path, job.name, "FAILED", duration, error=str(e))
-        return {"job": job.name, "status": "FAILED", "duration_seconds": duration, "message": str(e)}
+        return {
+            "job": job.name,
+            "status": "FAILED",
+            "duration_seconds": duration,
+            "message": str(e),
+            "report_file": None,
+        }
 
 
 def run_all(
@@ -131,7 +167,8 @@ def run_all(
                 "job": job.name,
                 "status": "SKIPPED",
                 "duration_seconds": 0.0,
-                "message": "job desabilitado (enabled: false)",
+                "message": "job disabled (enabled: false)",
+                "report_file": None,
             })
             continue
         results.append(run_job(job, log_path, dry_run=dry_run, force=force))
@@ -147,11 +184,11 @@ if __name__ == "__main__":
 
     config = load_config("jobs.yaml")
 
-    print(f"modo: {'dry-run' if dry_run else 'EXECUCAO REAL'} | force: {force}")
-    print(f"jobs carregados: {[j.name for j in config.jobs]}\n")
+    print(f"mode: {'dry-run' if dry_run else 'LIVE'} | force: {force}")
+    print(f"jobs loaded: {[j.name for j in config.jobs]}\n")
 
     results = run_all(config, dry_run=dry_run, force=force)
 
     for r in results:
-        dur = f"{r['duration_seconds']:.1f}s" if r["duration_seconds"] else "  -"
+        dur = f"{r['duration_seconds']:.1f}s" if r["duration_seconds"] else "-"
         print(f"  {r['status']:<10}  {r['job']:<20}  {dur}  {r['message']}")

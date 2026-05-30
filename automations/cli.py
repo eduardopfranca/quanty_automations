@@ -47,7 +47,11 @@ def cmd_run(args: argparse.Namespace) -> int:
         print(f"[ERRO] config invalida: {e}")
         return 1
 
+    from datetime import datetime
     from .runner import EXECUTION_LOG_PATH, run_all, run_job
+    from .notifier import send_summary
+
+    start = datetime.now()
 
     if args.job:
         job = next((j for j in config.jobs if j.name == args.job), None)
@@ -58,6 +62,8 @@ def cmd_run(args: argparse.Namespace) -> int:
         results = [run_job(job, EXECUTION_LOG_PATH, dry_run=args.dry_run, force=args.force)]
     else:
         results = run_all(config, dry_run=args.dry_run, force=args.force)
+
+    end = datetime.now()
 
     modo = "DRY-RUN" if args.dry_run else "EXECUCAO"
     print(f"\n{modo} — {len(results)} job(s)\n")
@@ -72,6 +78,13 @@ def cmd_run(args: argparse.Namespace) -> int:
             failed += 1
 
     print()
+
+    if not args.dry_run:
+        try:
+            send_summary(config.settings, results, start, end)
+        except Exception as e:
+            print(f"  [!] email not sent: {e}")
+
     return 1 if failed else 0
 
 

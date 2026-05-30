@@ -28,10 +28,10 @@ class Settings(BaseSettings):
     smtp_port: int = 587
     smtp_user: str | None = None
     smtp_password: str | None = None
+    email_on_success: bool = True
 
 
 DAYS = {"mon", "tue", "wed", "thu", "fri", "sat", "sun"}
-
 
 class ScheduleConfig(BaseModel):
     days_of_week: list[str] | None = None
@@ -59,7 +59,7 @@ class ScheduleConfig(BaseModel):
 class ResultConfig(BaseModel):
     success_marker: str | None = None
     failure_marker: str | None = None
-    result_file: bool = False
+    report_file: str | None = None  
 
 
 class JobConfig(BaseModel):
