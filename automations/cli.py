@@ -103,8 +103,6 @@ def main() -> None:
     p_run.add_argument("--job", default=None, metavar="NAME", help="run only this job")
     p_run.set_defaults(func=cmd_run)
 
-    sub.add_parser("schedule", help="(phase 3) scheduled loop")
-
     args = parser.parse_args()
     if not hasattr(args, "func"):
         print(f"command '{args.command}' not yet implemented.")
