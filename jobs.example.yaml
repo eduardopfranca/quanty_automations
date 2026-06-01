@@ -1,14 +1,21 @@
 jobs:
   - name: hello
-    description: Exemplo sem rede. Status vem do exit code.
+    description: Smoke test — no network required. Success determined by exit code.
     script: examples/hello_job.py
 
-  - name: market_data
-    description: Baixa dados publicos via yfinance.
-    script: examples/yfinance_download.py
-    python: ${PYTHON_EXE}
+  - name: market_summary
+    description: Downloads IBOV and S&P500 data and emails a daily summary.
+    script: examples/market_summary.py
     schedule:
       days_of_week: [mon, tue, wed, thu, fri]
-      min_interval_hours: 24
+      min_interval_hours: 20
     result:
-      success_marker: "DONE"
+      report_file: logs/market_summary.txt
+
+  - name: weather_summary
+    description: Fetches today's weather forecast for Belo Horizonte via Open-Meteo.
+    script: examples/weather_summary.py
+    schedule:
+      min_interval_hours: 20
+    result:
+      report_file: logs/weather_summary.txt
